@@ -2,7 +2,7 @@
 
 # Gotify Server 一键安装脚本 for s390x Ubuntu
 # 作者: [jinzhenyi]
-# GitHub: [https：//github.jinzhenyi.pl]
+# GitHub: [https：//github/jinzhenyi/pl]
 
 set -e
 
