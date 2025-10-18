@@ -250,7 +250,7 @@ main() {
 }
 
 # 显示警告信息 
-cho
+echo
 log_warn "此脚本将在s390x架构服务器上安装青龙面板"
 log_warn "安装过程可能需要30分钟到2小时"
 log_warn "请确保网络连接稳定"
@@ -264,3 +264,4 @@ else
     log_info "安装已取消"
     exit 0
 fi
+echo
