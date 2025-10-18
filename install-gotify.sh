@@ -1,27 +1,21 @@
 #!/bin/bash
 
 # 青龙面板s390x架构安装脚本
-# GitHub: https://github.com/your-repo/install-qinglong-s390x
+# 无需Docker，从源码编译Node.js
 
 set -e
 
-# 颜色定义
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m'
-
 # 日志函数
 log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
+    echo "[INFO] $1"
 }
 
 log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
+    echo "[WARN] $1"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo "[ERROR] $1"
 }
 
 # 检查系统架构
@@ -30,11 +24,6 @@ check_architecture() {
     if [ "$arch" != "s390x" ]; then
         log_warn "检测到系统架构: $arch"
         log_warn "本脚本专为s390x架构优化，其他架构可能不兼容"
-        read -p "是否继续? (y/n): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            exit 1
-        fi
     else
         log_info "检测到s390x架构，继续安装..."
     fi
@@ -88,10 +77,9 @@ install_nodejs() {
     ./configure \
         --prefix=${install_dir} \
         --with-intl=full-icu \
-        --shared \
-        --without-npm
+        --shared
     
-    # 编译安装（使用所有可用的CPU核心）
+    # 编译安装
     local core_count=$(nproc)
     log_info "开始编译Node.js（使用${core_count}个CPU核心）..."
     make -j${core_count}
@@ -105,23 +93,40 @@ install_nodejs() {
     
     # 验证安装
     if command -v node &> /dev/null; then
-        log_info "Node.js 安装成功: $(node -v)"
+        log_info "Node.js 安装成功"
     else
         log_error "Node.js 安装失败"
         exit 1
     fi
 }
 
-# 安装npm和PM2
-install_npm_pm2() {
-    log_info "安装npm和PM2..."
+# 安装npm
+install_npm() {
+    log_info "安装npm..."
     
     # 安装npm
     curl -L https://www.npmjs.com/install.sh | sh
     
-    # 安装PM2
+    if command -v npm &> /dev/null; then
+        log_info "npm 安装成功"
+    else
+        log_error "npm 安装失败"
+        exit 1
+    fi
+}
+
+# 安装PM2
+install_pm2() {
+    log_info "安装PM2..."
+    
     sudo npm install -g pm2
-    log_info "PM2 安装成功: $(pm2 -v)"
+    
+    if command -v pm2 &> /dev/null; then
+        log_info "PM2 安装成功"
+    else
+        log_error "PM2 安装失败"
+        exit 1
+    fi
 }
 
 # 安装青龙面板
@@ -151,23 +156,6 @@ install_qinglong() {
     # 创建数据目录
     mkdir -p ${ql_dir}/data
     
-    # 创建配置文件
-    cat > ${ql_dir}/config.yaml << 'EOF'
-# 青龙面板配置文件
-scripts:
-  type: database
-  database:
-    dialect: sqlite
-    storage: ../data/db.sqlite
-
-logs:
-  level: info
-
-server:
-  port: 5700
-  host: 0.0.0.0
-EOF
-
     log_info "青龙面板安装完成"
 }
 
@@ -192,38 +180,21 @@ EOF
     # 保存PM2配置
     pm2 save
     
-    # 设置开机自启
-    if command -v systemctl &> /dev/null; then
-        pm2 startup
-    fi
-    
     log_info "服务启动完成"
 }
 
 # 显示安装结果
 show_result() {
-    local server_ip=$(curl -s ifconfig.me || hostname -I | awk '{print $1}')
-    
-    echo
     log_info "========== 安装完成 =========="
-    log_info "青龙面板访问地址: http://${server_ip}:5700"
+    log_info "青龙面板访问地址: http://服务器IP:5700"
     log_info "安装目录: $HOME/ql"
     log_info "数据目录: $HOME/ql/data"
-    log_info "PM2管理命令:"
-    echo "  pm2 status qinglong    # 查看状态"
-    echo "  pm2 stop qinglong      # 停止服务"
-    echo "  pm2 restart qinglong   # 重启服务"
-    echo "  pm2 logs qinglong      # 查看日志"
-    echo
-    log_warn "首次访问需要完成初始化设置"
-    log_warn "如果无法访问，请检查防火墙设置:"
-    echo "  sudo ufw allow 5700"
+    log_info "使用 pm2 status 查看服务状态"
 }
 
 # 主安装函数
 main() {
     log_info "开始安装青龙面板 (s390x架构)"
-    log_info "当前时间: $(date)"
     
     # 检查架构
     check_architecture
@@ -234,8 +205,11 @@ main() {
     # 安装Node.js
     install_nodejs
     
-    # 安装npm和PM2
-    install_npm_pm2
+    # 安装npm
+    install_npm
+    
+    # 安装PM2
+    install_pm2
     
     # 安装青龙面板
     install_qinglong
@@ -249,19 +223,5 @@ main() {
     log_info "安装完成!"
 }
 
-# 显示警告信息 
-echo
-log_warn "此脚本将在s390x架构服务器上安装青龙面板"
-log_warn "安装过程可能需要30分钟到2小时"
-log_warn "请确保网络连接稳定"
-echo
-
-read -p "是否继续安装? (y/n): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    main
-else
-    log_info "安装已取消"
-    exit 0
-fi
-echo
+# 直接运行主函数，无需交互
+main
